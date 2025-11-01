@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topological Sorting Visualizer</title>
+    <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Topological Sorting Visualizer</h1>
+        <p class="subtitle">Animated step-by-step visualization of DFS and BFS topological sorting</p>
+
+        <div class="controls">
+            <div class="input-group">
+                <label for="graphInput">Graph Input</label>
+                <div class="input-toggle">
+                    <button class="toggle-btn active" id="listBtn" onclick="setInputMode('list')">Adjacency List</button>
+                    <button class="toggle-btn" id="matrixBtn" onclick="setInputMode('matrix')">Adjacency Matrix</button>
+                </div>
+                <textarea id="graphInput" rows="6" placeholder="0: 1,2
+1: 3
+2: 3
+3: 4
+4:">0: 1,2
+1: 3
+2: 3
+3: 4
+4:</textarea>
+            </div>
+            <div class="input-group">
+                <label>Algorithm</label>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" id="dfsBtn" onclick="setAlgorithm('dfs')">DFS</button>
+                    <button class="toggle-btn" id="bfsBtn" onclick="setAlgorithm('bfs')">BFS (Kahn's)</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="speedSlider">Animation Speed</label>
+                <div class="speed-control">
+                    <input type="range" id="speedSlider" min="100" max="2000" value="800" step="100">
+                    <span id="speedLabel">0.8s</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="startBtn" onclick="startVisualization()">Start Visualization</button>
+            <button class="btn-success" id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
+            <button class="btn-success" id="nextBtn" onclick="nextStep()" disabled>Next Step</button>
+            <button class="btn-secondary" onclick="resetVisualization()">Reset</button>
+            <button class="btn-secondary" onclick="clearGraph()">Clear</button>
+        </div>
+
+        <div class="main-content">
+            <div class="visualization">
+                <canvas id="canvas" width="800" height="450"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #6c757d;"></div>
+                        <span>Unvisited</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffc107;"></div>
+                        <span>Visiting</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #28a745;"></div>
+                        <span>Processed</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #667eea;"></div>
+                        <span>In Stack/Queue</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-container">
+                <h3>📋 Step-by-Step Log</h3>
+                <div id="logContent"></div>
+            </div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
