@@ -91,7 +91,16 @@ function parseAdjacencyList(input) {
         allNodes.add(node);
 
         if (neighbors) {
-            const neighborList = neighbors.split(',').map(s => s.trim()).filter(s => s);
+            const neighborList = neighbors.split(',')
+                .map(s => s.trim())
+                .filter(s => s);
+
+            for (const neighbor of neighborList) {
+                if (neighbor === node) {
+                    throw new Error(`Self-loop detected for node "${node}". Topological sort is not possible on graphs with cycles.`);
+                }
+            }
+            
             g[node] = neighborList;
             neighborList.forEach(n => allNodes.add(n));
         } else {
@@ -115,14 +124,11 @@ function parseAdjacencyMatrix(input) {
         throw new Error('Invalid matrix format. Need at least header row and one data row.');
     }
 
-    // Parse header (node labels)
     const nodes = lines[0].split(/\s+/).filter(s => s);
     const g = {};
 
-    // Initialize all nodes
     nodes.forEach(node => g[node] = []);
 
-    // Parse matrix rows
     for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(/\s+/).filter(s => s);
 
@@ -132,8 +138,13 @@ function parseAdjacencyMatrix(input) {
         const row = parts.slice(1);
 
         for (let j = 0; j < row.length && j < nodes.length; j++) {
+            const toNode = nodes[j];
+            
             if (row[j] === '1') {
-                g[fromNode].push(nodes[j]);
+                if (fromNode === toNode) {
+                    throw new Error(`Self-loop detected for node "${fromNode}". Topological sort is not possible on graphs with cycles.`);
+                }
+                g[fromNode].push(toNode);
             }
         }
     }
@@ -157,7 +168,8 @@ function generateDFSSteps(graph) {
         result: []
     });
 
-    function dfs(node, recStack, path) {
+    function dfs(node, recStack) {
+        // This initial check is still useful for the start of the traversal
         if (recStack.has(node)) {
             throw new Error('Graph contains a cycle! Topological sort not possible.');
         }
@@ -175,26 +187,27 @@ function generateDFSSteps(graph) {
             activeNode: node
         });
 
+        // --- START: CORRECTED CYCLE DETECTION LOGIC ---
         for (let neighbor of graph[node]) {
+            steps.push({
+                message: `Exploring edge ${node} → ${neighbor}`,
+                states: { ...nodeStates },
+                stack: [...stack],
+                result: [],
+                activeEdge: [node, neighbor]
+            });
+            
+            // CRITICAL FIX: Check if the neighbor is in the current recursion stack.
+            // This is the definitive test for a cycle in DFS.
+            if (recStack.has(neighbor)) {
+                throw new Error(`Cycle detected! Edge from ${node} to ${neighbor} points back to an ancestor in the current path.`);
+            }
+
             if (!visited.has(neighbor)) {
-                steps.push({
-                    message: `Exploring edge ${node} → ${neighbor}`,
-                    states: { ...nodeStates },
-                    stack: [...stack],
-                    result: [],
-                    activeEdge: [node, neighbor]
-                });
-                dfs(neighbor, recStack, [...path, neighbor]);
-            } else {
-                steps.push({
-                    message: `Node ${neighbor} already visited, skipping`,
-                    states: { ...nodeStates },
-                    stack: [...stack],
-                    result: [],
-                    activeEdge: [node, neighbor]
-                });
+                dfs(neighbor, recStack);
             }
         }
+        // --- END: CORRECTED CYCLE DETECTION LOGIC ---
 
         recStack.delete(node);
         nodeStates[node] = 'processed';
@@ -216,7 +229,7 @@ function generateDFSSteps(graph) {
                 stack: [...stack],
                 result: []
             });
-            dfs(node, new Set(), [node]);
+            dfs(node, new Set());
         }
     }
 
@@ -335,29 +348,22 @@ function generateBFSSteps(graph) {
 function calculateNodePositions(nodes) {
     const positions = {};
     const numNodes = nodes.length;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    // Calculate a radius that uses the canvas space well, but leaves a margin
+    const radius = Math.min(canvas.width, canvas.height) / 2 - NODE_RADIUS * 3;
 
-    if (numNodes <= 5) {
-        nodes.forEach((node, idx) => {
-            positions[node] = {
-                x: (idx + 1) * (canvas.width / (numNodes + 1)),
-                y: canvas.height / 2
-            };
-        });
-    } else {
-        const cols = Math.ceil(Math.sqrt(numNodes));
-        const rows = Math.ceil(numNodes / cols);
-        const xSpacing = canvas.width / (cols + 1);
-        const ySpacing = canvas.height / (rows + 1);
+    // Sort nodes numerically/alphabetically to ensure a consistent layout
+    const sortedNodes = [...nodes].sort();
 
-        nodes.forEach((node, idx) => {
-            const row = Math.floor(idx / cols);
-            const col = idx % cols;
-            positions[node] = {
-                x: (col + 1) * xSpacing,
-                y: (row + 1) * ySpacing
-            };
-        });
-    }
+    sortedNodes.forEach((node, idx) => {
+        // Distribute nodes evenly around the circle
+        const angle = (idx / numNodes) * 2 * Math.PI - (Math.PI / 2); // Start from the top
+        positions[node] = {
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle)
+        };
+    });
 
     return positions;
 }
@@ -368,48 +374,94 @@ function drawGraph(step) {
     const nodes = Object.keys(graph);
     const positions = calculateNodePositions(nodes);
 
-    // Draw edges
+    // 1. Pre-computation step: Group edges that are between the same two nodes
+    const multiEdgeMap = {};
+    for (const fromNode in graph) {
+        for (const toNode of graph[fromNode]) {
+            // Create a canonical key (e.g., "1-5") for any pair of nodes
+            const key = [fromNode, toNode].sort().join('-');
+            if (!multiEdgeMap[key]) {
+                multiEdgeMap[key] = [];
+            }
+            multiEdgeMap[key].push({ from: fromNode, to: toNode });
+        }
+    }
+
+    // 2. Draw all edges with the new logic
     for (let node in graph) {
         for (let neighbor of graph[node]) {
             const from = positions[node];
             const to = positions[neighbor];
+            const isActive = step.activeEdge && step.activeEdge[0] === node && step.activeEdge[1] === neighbor;
 
-            const angle = Math.atan2(to.y - from.y, to.x - from.x);
-            const startX = from.x + NODE_RADIUS * Math.cos(angle);
-            const startY = from.y + NODE_RADIUS * Math.sin(angle);
-            const endX = to.x - NODE_RADIUS * Math.cos(angle);
-            const endY = to.y - NODE_RADIUS * Math.sin(angle);
+            // Find all connections between this pair of nodes
+            const key = [node, neighbor].sort().join('-');
+            const allEdges = multiEdgeMap[key];
+            const totalEdges = allEdges.length;
 
-            const isActive = step.activeEdge &&
-                step.activeEdge[0] === node &&
-                step.activeEdge[1] === neighbor;
+            let startX, startY, endX, endY;
+            let arrowAngle;
 
             ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
+
+            // If there's only one edge, draw it as a straight line
+            if (totalEdges === 1) {
+                const angle = Math.atan2(to.y - from.y, to.x - from.x);
+                startX = from.x + NODE_RADIUS * Math.cos(angle);
+                startY = from.y + NODE_RADIUS * Math.sin(angle);
+                endX = to.x - NODE_RADIUS * Math.cos(angle);
+                endY = to.y - NODE_RADIUS * Math.sin(angle);
+                arrowAngle = angle;
+
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+            } else {
+                // If there are multiple edges, draw them as curves
+                const edgeIndex = allEdges.findIndex(e => e.from === node && e.to === neighbor);
+                const curveMagnitude = 30;
+                // This formula creates alternating curves (e.g., one up, one down)
+                const curvature = curveMagnitude * (edgeIndex % 2 === 0 ? 1 : -1) * Math.ceil((edgeIndex + 1) / 2);
+
+                const midX = (from.x + to.x) / 2;
+                const midY = (from.y + to.y) / 2;
+                const angle = Math.atan2(to.y - from.y, to.x - from.x);
+                const perpAngle = angle + Math.PI / 2;
+
+                // This control point pulls the line into a curve
+                const controlX = midX + curvature * Math.cos(perpAngle);
+                const controlY = midY + curvature * Math.sin(perpAngle);
+
+                const startAngle = Math.atan2(controlY - from.y, controlX - from.x);
+                const endAngle = Math.atan2(to.y - controlY, to.x - controlX);
+
+                startX = from.x + NODE_RADIUS * Math.cos(startAngle);
+                startY = from.y + NODE_RADIUS * Math.sin(startAngle);
+                endX = to.x - NODE_RADIUS * Math.cos(endAngle);
+                endY = to.y - NODE_RADIUS * Math.sin(endAngle);
+                arrowAngle = Math.atan2(endY - controlY, endX - controlX);
+
+                ctx.moveTo(startX, startY);
+                ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            }
+
+            // --- Common drawing code for both line types ---
             ctx.strokeStyle = isActive ? COLORS.edgeActive : COLORS.edge;
             ctx.lineWidth = isActive ? 3 : 2;
             ctx.stroke();
 
-            // Arrow
+            // Draw the arrowhead
             const arrowSize = 10;
             ctx.beginPath();
             ctx.moveTo(endX, endY);
-            ctx.lineTo(
-                endX - arrowSize * Math.cos(angle - Math.PI / 6),
-                endY - arrowSize * Math.sin(angle - Math.PI / 6)
-            );
-            ctx.lineTo(
-                endX - arrowSize * Math.cos(angle + Math.PI / 6),
-                endY - arrowSize * Math.sin(angle + Math.PI / 6)
-            );
+            ctx.lineTo(endX - arrowSize * Math.cos(arrowAngle - Math.PI / 6), endY - arrowSize * Math.sin(arrowAngle - Math.PI / 6));
+            ctx.lineTo(endX - arrowSize * Math.cos(arrowAngle + Math.PI / 6), endY - arrowSize * Math.sin(arrowAngle + Math.PI / 6));
             ctx.closePath();
             ctx.fillStyle = isActive ? COLORS.edgeActive : COLORS.edge;
             ctx.fill();
         }
     }
-
-    // Draw nodes
+    
+    // The rest of the function (drawing nodes, logs, etc.) remains the same.
     for (let node in positions) {
         const pos = positions[node];
         const state = step.states[node];
@@ -430,7 +482,6 @@ function drawGraph(step) {
         ctx.fillText(node, pos.x, pos.y);
     }
 
-    // Draw stack/queue info
     if (step.queue || step.stack) {
         const info = step.queue ?
             `Queue: [${step.queue.join(', ')}]` :
@@ -442,10 +493,9 @@ function drawGraph(step) {
         ctx.fillText(info, 10, 20);
     }
 
-    // Draw result
     if (step.result && step.result.length > 0) {
         const resultText = `Result: [${step.result.join(' → ')}]`;
-        ctx.fillStyle = '#28a745';
+        ctx.fillStyle = '#28a_745';
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(resultText, 10, 45);
