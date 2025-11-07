@@ -8,17 +8,26 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔄 Topological Sorting Visualizer</h1>
-        <p class="subtitle">Animated step-by-step visualization of DFS and BFS topological sorting</p>
+        <div class="header-nav">
+            <h1 id="main-title">🔄 Topological Sorting Visualizer</h1>
+            <div class="nav-toggle-group">
+                <button class="toggle-btn" id="theory-btn" onclick="showView('theory')">Theory</button>
+                <button class="toggle-btn active" id="visualizer-btn" onclick="showView('visualizer')">Visualizer</button>
+            </div>
+        </div>
 
-        <div class="controls">
-            <div class="input-group">
-                <label for="graphInput">Graph Input</label>
-                <div class="input-toggle">
-                    <button class="toggle-btn active" id="listBtn" onclick="setInputMode('list')">Adjacency List</button>
-                    <button class="toggle-btn" id="matrixBtn" onclick="setInputMode('matrix')">Adjacency Matrix</button>
-                </div>
-                <textarea id="graphInput" rows="6" placeholder="0: 1,2
+        <!-- Visualizer View -->
+        <div id="visualizer-view">
+            <p class="subtitle">Animated step-by-step visualization of DFS and BFS topological sorting</p>
+
+            <div class="controls">
+                <div class="input-group">
+                    <label for="graphInput">Graph Input</label>
+                    <div class="input-toggle">
+                        <button class="toggle-btn active" id="listBtn" onclick="setInputMode('list')">Adjacency List</button>
+                        <button class="toggle-btn" id="matrixBtn" onclick="setInputMode('matrix')">Adjacency Matrix</button>
+                    </div>
+                    <textarea id="graphInput" rows="6" placeholder="0: 1,2
 1: 3
 2: 3
 3: 4
@@ -27,61 +36,175 @@
 2: 3
 3: 4
 4:</textarea>
-            </div>
-            <div class="input-group">
-                <label>Algorithm</label>
-                <div class="toggle-group">
-                    <button class="toggle-btn active" id="dfsBtn" onclick="setAlgorithm('dfs')">DFS</button>
-                    <button class="toggle-btn" id="bfsBtn" onclick="setAlgorithm('bfs')">BFS (Kahn's)</button>
                 </div>
-            </div>
-            <div class="input-group">
-                <label for="speedSlider">Animation Speed/Step</label>
-                <div class="speed-control">
-                    <input type="range" id="speedSlider" min="100" max="2000" value="800" step="100">
-                    <span id="speedLabel">0.8s</span>
+                <div class="input-group">
+                    <label>Generate Random Graph</label>
+                    <div class="random-controls">
+                        <input type="number" id="numNodes" value="8" min="2" max="20" placeholder="Nodes">
+                        <input type="number" id="numEdges" value="10" min="1" max="50" placeholder="Edges">
+                        <button class="btn-secondary" onclick="generateRandomGraph()">Generate</button>
+                    </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="button-group">
-            <button class="btn-primary" id="startBtn" onclick="startVisualization()">Start Visualization</button>
-            <button class="btn-success" id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
-            <button class="btn-success" id="nextBtn" onclick="nextStep()" disabled>Next Step</button>
-            <button class="btn-secondary" onclick="resetVisualization()">Reset Visualization</button>
-            <button class="btn-secondary" onclick="clearGraph()">Clear</button>
-        </div>
-
-        <div class="main-content">
-            <div class="visualization">
-                <canvas id="canvas" width="800" height="450"></canvas>
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #6c757d;"></div>
-                        <span>Unvisited</span>
+                <div class="input-group">
+                    <label>Algorithm</label>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" id="dfsBtn" onclick="setAlgorithm('dfs')">DFS</button>
+                        <button class="toggle-btn" id="bfsBtn" onclick="setAlgorithm('bfs')">BFS (Kahn's)</button>
                     </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #ffc107;"></div>
-                        <span>Visiting</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #28a745;"></div>
-                        <span>Processed</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #667eea;"></div>
-                        <span>In Stack/Queue</span>
+                    <label style="margin-top: 15px;">Animation Speed/Step</label>
+                    <div class="speed-control">
+                        <input type="range" id="speedSlider" min="100" max="2000" value="1300" step="100">
+                        <span id="speedLabel">0.8s</span>
                     </div>
                 </div>
             </div>
 
-            <div class="log-container">
-                <h3>📋 Step-by-Step Log</h3>
-                <div id="logContent"></div>
+            <div class="button-group">
+                <button class="btn-primary" id="startBtn" onclick="startVisualization()">Start Visualization</button>
+                <button class="btn-success" id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
+                <button class="btn-success" id="nextBtn" onclick="nextStep()" disabled>Next Step</button>
+                <button class="btn-secondary" onclick="resetVisualization()">Reset</button>
+                <button class="btn-secondary" onclick="clearGraph()">Clear</button>
             </div>
+
+            <div class="main-content">
+                <div class="visualization">
+                    <canvas id="canvas" width="800" height="450"></canvas>
+                    <div class="legend">
+                        <div class="legend-item"><div class="legend-color" style="background: #6c757d;"></div><span>Unvisited</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background: #ffc107;"></div><span>Visiting</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background: #28a745;"></div><span>Processed</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background: #667eea;"></div><span>In Stack/Queue</span></div>
+                    </div>
+                </div>
+
+                <div class="log-container">
+                    <h3>📋 Step-by-Step Log</h3>
+                    <div id="logContent"></div>
+                </div>
+            </div>
+
+            <div id="result"></div>
         </div>
 
-        <div id="result"></div>
+        <!-- Theory View -->
+        <div id="theory-view" style="display: none;">
+             <p class="subtitle">Understanding the concepts behind topological sorting algorithms</p>
+
+            <div class="theory-content">
+                <section id="kahns-algorithm">
+                    <h2>Kahn's Algorithm (BFS Approach)</h2>
+                    <div class="card">
+                        <h3>How It Works</h3>
+                        <p>
+                            Kahn's algorithm is a Breadth-First Search (BFS) based approach. It works by identifying nodes that have no incoming edges (in-degree of 0). These nodes can safely be placed first in the sorted order. The algorithm then "removes" these nodes and their outgoing edges from the graph. This may, in turn, reduce the in-degree of other nodes, potentially making them the new nodes with an in-degree of 0. This process is repeated until all nodes are visited.
+                        </p>
+                        <h3>Algorithm Steps</h3>
+                        <ol>
+                            <li><strong>Compute In-Degrees:</strong> Calculate the in-degree for every vertex in the graph.</li>
+                            <li><strong>Initialize Queue:</strong> Add all vertices with an in-degree of 0 to a queue.</li>
+                            <li><strong>Process Nodes:</strong> While the queue is not empty:
+                                <ol type="a">
+                                    <li>Dequeue a vertex <code>u</code>. Add <code>u</code> to the result list.</li>
+                                    <li>For each neighbor <code>v</code> of <code>u</code>:
+                                        <ul>
+                                            <li>Decrement the in-degree of <code>v</code>.</li>
+                                            <li>If the in-degree of <code>v</code> becomes 0, enqueue <code>v</code>.</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                            </li>
+                            <li><strong>Check for Cycle:</strong> If the count of nodes in the result list is less than the total number of nodes in the graph, a cycle exists.</li>
+                        </ol>
+                        <h3>Live Visualization</h3>
+                        <p>
+                            The <a href="#" onclick="switchToVisualizer('bfs')">BFS visualization</a> on the main page demonstrates this process. It highlights the nodes being added to the queue and processed, showing how the in-degrees of their neighbors are updated in real-time.
+                        </p>
+                    </div>
+                </section>
+    
+                <section id="dfs-approach">
+                    <h2>DFS Approach</h2>
+                    <div class="card">
+                        <h3>How It Works</h3>
+                        <p>
+                            The Depth-First Search (DFS) approach is another way to perform topological sorting. This method explores the graph as deeply as possible along each branch before backtracking. The key idea is to push a vertex to a stack only after all its adjacent vertices (and their descendants) have been visited. The final topological order is the reverse of the order in which the vertices were pushed onto the stack.
+                        </p>
+                        <h3>Algorithm Steps</h3>
+                        <ol>
+                            <li><strong>Initialize:</strong> Create an empty stack to store the sorted nodes and a set to track visited nodes.</li>
+                            <li><strong>Iterate and Recurse:</strong> For each unvisited vertex <code>u</code> in the graph, call a recursive DFS helper function on <code>u</code>.</li>
+                            <li><strong>DFS Helper Function (<code>dfs(u)</code>):</strong>
+                                <ol type="a">
+                                    <li>Mark <code>u</code> as visited and add it to the current recursion stack (to detect cycles).</li>
+                                    <li>For each neighbor <code>v</code> of <code>u</code>:
+                                        <ul>
+                                            <li>If <code>v</code> is on the current recursion stack, a cycle is detected.</li>
+                                            <li>If <code>v</code> is not visited, recursively call <code>dfs(v)</code>.</li>
+                                        </ul>
+                                    </li>
+                                    <li>Remove <code>u</code> from the recursion stack.</li>
+                                    <li>Push <code>u</code> onto the main stack.</li>
+                                </ol>
+                            </li>
+                            <li><strong>Final Result:</strong> Once the iteration is complete, pop all items from the stack to get the final topological order.</li>
+                        </ol>
+                         <h3>Live Visualization</h3>
+                        <p>
+                            Our <a href="#" onclick="switchToVisualizer('dfs')">DFS visualizer</a> provides a step-by-step animation of this recursive process. It shows nodes being visited, processed, and added to the stack.
+                        </p>
+                    </div>
+                </section>
+    
+                <section id="compare">
+                    <h2>Compare & Choose: BFS vs. DFS</h2>
+                    <div class="card">
+                        <h3>BFS vs. DFS</h3>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Aspect</th>
+                                    <th>Kahn's Algorithm (BFS)</th>
+                                    <th>DFS-Based Algorithm</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Core Idea</strong></td>
+                                    <td>Processes nodes with no incoming dependencies first.</td>
+                                    <td>Processes a node after all its dependencies have been processed.</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Data Structure</strong></td>
+                                    <td>Queue</td>
+                                    <td>Stack (often via recursion call stack)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Output Order</strong></td>
+                                    <td>The resulting order is lexicographically smallest if the queue is managed like a min-priority queue.</td>
+                                    <td>The order depends on the starting nodes and traversal path.</td>
+                                </tr>
+                                 <tr>
+                                    <td><strong>Cycle Detection</strong></td>
+                                    <td>A cycle is detected if the final result has fewer nodes than the graph.</td>
+                                    <td>A cycle is detected if a "back edge" is found to a node in the current recursion stack.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <h3>When to Use Which</h3>
+                        <ul>
+                            <li>Use <strong>Kahn's Algorithm (BFS)</strong> when you need the resulting order to be lexicographically sorted, as you can use a min-priority queue instead of a regular queue. It's also more intuitive for understanding task dependencies.</li>
+                            <li>Use the <strong>DFS approach</strong> when you have a graph represented in a way that's naturally suited for recursion, or if you prefer a more straightforward implementation without the need to pre-calculate in-degrees.</li>
+                        </ul>
+                        <h3>Performance</h3>
+                        <p>
+                            Both algorithms have the same time complexity: <strong>O(V + E)</strong>, where <code>V</code> is the number of vertices and <code>E</code> is the number of edges.
+                            This is because both methods must visit every vertex and every edge exactly once. The space complexity is also <strong>O(V)</strong> to store the in-degrees/visited set and the queue/stack.
+                        </p>
+                    </div>
+                </section>
+            </div>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
