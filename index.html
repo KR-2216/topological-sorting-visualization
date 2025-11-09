@@ -62,8 +62,8 @@
             <div class="button-group">
                 <button class="btn-primary" id="startBtn" onclick="startVisualization()">Start Visualization</button>
                 <button class="btn-success" id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
+                <button class="btn-success" id="prevBtn" onclick="prevStep()" disabled>Prev Step</button>
                 <button class="btn-success" id="nextBtn" onclick="nextStep()" disabled>Next Step</button>
-                <button class="btn-secondary" onclick="resetVisualization()">Reset</button>
                 <button class="btn-secondary" onclick="clearGraph()">Clear</button>
             </div>
 
@@ -250,7 +250,7 @@
                                     <td><strong>Cycle Detection</strong></td>
                                     <td>A cycle is detected if the final result has fewer nodes than the graph.</td>
                                     <td>A cycle is detected if a "back edge" is found to a node in the current recursion stack.</td>
-                                </tr>
+                                 </tr>
                             </tbody>
                         </table>
                         <h3>When to Use Which</h3>

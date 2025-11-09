@@ -30,14 +30,39 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
         console.error("Error initializing default graph:", e);
     }
+
+    // --- NEW: Keyboard Shortcuts ---
+    document.addEventListener('keydown', (e) => {
+        // Don't fire shortcuts if the user is typing in an input field
+        const activeTagName = document.activeElement.tagName.toLowerCase();
+        if (activeTagName === 'textarea' || activeTagName === 'input') {
+            return;
+        }
+
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        switch (e.key) {
+            case 'ArrowLeft':
+                if (!prevBtn.disabled) prevBtn.click();
+                break;
+            case 'ArrowRight':
+                if (!nextBtn.disabled) nextBtn.click();
+                break;
+            case ' ': // Space key
+                e.preventDefault(); // Prevent page from scrolling on space
+                if (!pauseBtn.disabled) pauseBtn.click();
+                break;
+        }
+    });
 });
 
 document.getElementById('speedSlider').addEventListener('input', (e) => {
-    animationSpeed = parseInt(e.target.value); // Corrected logic
+    animationSpeed = parseInt(e.target.value);
     document.getElementById('speedLabel').textContent = (animationSpeed / 1000).toFixed(1) + 's';
 });
 
-// --- NEW: View Switching Functionality ---
 function showView(viewId) {
     const visualizerView = document.getElementById('visualizer-view');
     const theoryView = document.getElementById('theory-view');
@@ -69,20 +94,18 @@ function setAlgorithm(algo) {
 }
 
 function setInputMode(mode) {
-    if (mode === inputMode) return; // Do nothing if the mode is already active
+    if (mode === inputMode) return;
 
     const graphInput = document.getElementById('graphInput');
     let currentGraph;
     try {
-        // Parse the current input based on the *old* mode
         currentGraph = parseGraph(graphInput.value);
     } catch (e) {
         console.error("Error parsing graph for conversion:", e);
-        // Don't switch if current input is invalid
         return;
     }
     
-    inputMode = mode; // Set the new mode
+    inputMode = mode;
     
     document.getElementById('listBtn').classList.toggle('active', mode === 'list');
     document.getElementById('matrixBtn').classList.toggle('active', mode === 'matrix');
@@ -124,7 +147,7 @@ function parseAdjacencyList(input) {
 
 function parseAdjacencyMatrix(input) {
     const lines = input.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length < 1) return {}; // Handle empty input
+    if (lines.length < 1) return {};
     const nodes = lines[0].split(/\s+/).filter(Boolean);
     const g = {};
     nodes.forEach(node => g[node] = []);
@@ -132,7 +155,7 @@ function parseAdjacencyMatrix(input) {
         const parts = lines[i].split(/\s+/).filter(Boolean);
         if (parts.length < 1) continue;
         const fromNode = parts[0];
-         if (!nodes.includes(fromNode)) continue; // Ensure the row header is a valid node
+         if (!nodes.includes(fromNode)) continue;
         const row = parts.slice(1);
         for (let j = 0; j < row.length && j < nodes.length; j++) {
             if (row[j] === '1') g[fromNode].push(nodes[j]);
@@ -167,7 +190,7 @@ function graphToMatrixString(graph) {
 function generateDFSSteps(graph) {
     const visited = new Set();
     const stack = [];
-    const nodes = Object.keys(graph);
+    const nodes = Object.keys(graph).sort((a, b) => a - b); // Sort for deterministic behavior
     const steps = [];
     const nodeStates = {};
     nodes.forEach(node => nodeStates[node] = 'unvisited');
@@ -175,33 +198,36 @@ function generateDFSSteps(graph) {
     steps.push({ message: 'Starting DFS-based Topological Sort', states: { ...nodeStates }, stack: [], pseudoLine: 1 });
 
     function dfs(node, recStack, path) {
-        if (recStack.has(node)) {
-            const cycleStartIndex = path.indexOf(node);
-            const cyclePath = [...path.slice(cycleStartIndex), node];
-            steps.push({
-                message: `Cycle detected: ${cyclePath.join(' → ')}`,
-                states: { ...nodeStates },
-                cycle: cyclePath,
-                final: true,
-                error: true
-            });
-            throw new Error(`Cycle detected involving node ${node}`);
-        }
-        if (visited.has(node)) return;
-
-        recStack.add(node); visited.add(node); path.push(node);
+        recStack.add(node);
+        visited.add(node);
+        path.push(node);
         nodeStates[node] = 'visiting';
         steps.push({ message: `Visiting node ${node}`, states: { ...nodeStates }, stack: [...stack], activeNode: node, pseudoLine: 9 });
 
-        for (let neighbor of graph[node]) {
+        const neighbors = graph[node] || [];
+        for (let neighbor of neighbors) {
             steps.push({ message: `Exploring edge ${node} → ${neighbor}`, states: { ...nodeStates }, stack: [...stack], activeEdge: [node, neighbor], pseudoLine: 10 });
+
             if (!visited.has(neighbor)) {
-                 steps.push({ message: `${neighbor} is not visited, recursively call DFS`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 12 });
+                steps.push({ message: `${neighbor} is not visited, recursively call DFS`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 12 });
                 dfs(neighbor, recStack, path);
+            } else if (recStack.has(neighbor)) {
+                // If the neighbor is already visited AND is in the current recursion stack, a cycle is found.
+                path.push(neighbor); // Add the neighbor to show the full cycle path
+                const cyclePath = path.slice(path.indexOf(neighbor));
+                steps.push({
+                    message: `Cycle detected: ${cyclePath.join(' → ')}`,
+                    states: { ...nodeStates },
+                    cycle: cyclePath,
+                    final: true,
+                    error: true
+                });
+                throw new Error(`Cycle detected involving node ${neighbor}`);
             }
         }
 
-        recStack.delete(node); path.pop();
+        recStack.delete(node);
+        path.pop();
         nodeStates[node] = 'processed';
         stack.push(node);
         steps.push({ message: `Finished processing node ${node}, adding to stack`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 13 });
@@ -209,19 +235,21 @@ function generateDFSSteps(graph) {
 
     try {
         for (let node of nodes) {
-             steps.push({ message: `Checking main loop for unvisited nodes. Current: ${node}`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 4 });
+            steps.push({ message: `Checking main loop for unvisited nodes. Current: ${node}`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 4 });
             if (!visited.has(node)) {
-                 steps.push({ message: `Node ${node} is unvisited. Starting DFS from it.`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 6 });
+                steps.push({ message: `Node ${node} is unvisited. Starting DFS from it.`, states: { ...nodeStates }, stack: [...stack], pseudoLine: 6 });
                 dfs(node, new Set(), []);
             }
         }
         const result = [...stack].reverse();
         steps.push({ message: 'Reversing stack to get topological order', states: { ...nodeStates }, stack: [], result: result, final: true, pseudoLine: 7 });
     } catch (error) {
-        console.log(error.message);
+        // The error is used to break recursion, the final error step is already in the steps array.
+        console.log("Caught expected error:", error.message);
     }
     return steps;
 }
+
 
 function generateBFSSteps(graph) {
     const inDegree = {};
@@ -373,11 +401,12 @@ function updateLog() {
             if (idx === currentStep) entry.classList.add('active');
             entry.innerHTML = `<span class="step-number">Step ${idx + 1}:</span> ${step.message}`;
             logContent.appendChild(entry);
-            if (idx === currentStep) {
-                entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
         }
     });
+
+    // --- THIS IS THE FIX ---
+    // This scrolls the container's content to the bottom without affecting the page scroll.
+    logContent.scrollTop = logContent.scrollHeight;
 }
 
 function updatePseudocodeHighlight(line) {
@@ -391,7 +420,8 @@ function updatePseudocodeHighlight(line) {
         const lineEl = container.querySelector(`p[data-line="${line}"]`);
         if (lineEl) {
             lineEl.classList.add('highlight');
-            lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // This line, which causes page scrolling, remains commented out.
+            // lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
 }
@@ -414,6 +444,9 @@ function startVisualization() {
         document.getElementById('pauseBtn').disabled = false;
         document.getElementById('pauseBtn').textContent = 'Pause';
         document.getElementById('nextBtn').disabled = false;
+        document.getElementById('prevBtn').disabled = true;
+        document.getElementById('dfsBtn').disabled = true;
+        document.getElementById('bfsBtn').disabled = true;
 
         isAnimating = true; autoPlay();
     } catch (error) {
@@ -421,20 +454,44 @@ function startVisualization() {
     }
 }
 
-function nextStep() {
-    if (currentStep < animationSteps.length - 1) {
-        currentStep++;
-        drawGraph(animationSteps[currentStep]);
-        updateLog();
-        updatePseudocodeHighlight(animationSteps[currentStep].pseudoLine);
+function prevStep() {
+    if (currentStep <= 0) return;
 
-        if (animationSteps[currentStep].final) {
-            showFinalResult();
-            document.getElementById('nextBtn').disabled = true;
-            document.getElementById('pauseBtn').disabled = true;
-            isAnimating = false; isPaused = false;
-            if (animationTimer) clearTimeout(animationTimer);
-        }
+    if (animationSteps[currentStep].final) {
+        document.getElementById('result').innerHTML = '';
+        isAnimating = true; 
+    }
+
+    currentStep--;
+    drawGraph(animationSteps[currentStep]);
+    updateLog();
+    updatePseudocodeHighlight(animationSteps[currentStep].pseudoLine);
+
+    document.getElementById('nextBtn').disabled = false;
+    document.getElementById('pauseBtn').disabled = false;
+    document.getElementById('prevBtn').disabled = (currentStep === 0);
+}
+
+function nextStep() {
+    if (currentStep >= animationSteps.length - 1) return;
+
+    currentStep++;
+    drawGraph(animationSteps[currentStep]);
+    updateLog();
+    updatePseudocodeHighlight(animationSteps[currentStep].pseudoLine);
+
+    document.getElementById('prevBtn').disabled = false;
+
+    if (animationSteps[currentStep].final) {
+        showFinalResult();
+        document.getElementById('nextBtn').disabled = true;
+        document.getElementById('pauseBtn').disabled = true;
+        document.getElementById('startBtn').disabled = false; // Re-enable Start
+        document.getElementById('dfsBtn').disabled = false;
+        document.getElementById('bfsBtn').disabled = false;
+        isAnimating = false;
+        isPaused = false;
+        if (animationTimer) clearTimeout(animationTimer);
     }
 }
 
@@ -448,6 +505,7 @@ function autoPlay() {
 }
 
 function togglePause() {
+    if (!isAnimating) return;
     isPaused = !isPaused;
     const pauseBtn = document.getElementById('pauseBtn');
     if (isPaused) {
@@ -468,6 +526,7 @@ function showFinalResult() {
     } else {
         resultDiv.innerHTML = `<div class="result"><h3>✅ Final Topological Order (${algorithm.toUpperCase()})</h3><div class="result-order">${step.result.join(' → ')}</div></div>`;
     }
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function resetVisualization() {
@@ -490,8 +549,11 @@ function resetVisualization() {
     document.getElementById('pauseBtn').disabled = true;
     document.getElementById('pauseBtn').textContent = 'Pause';
     document.getElementById('nextBtn').disabled = true;
+    document.getElementById('prevBtn').disabled = true;
     document.getElementById('result').innerHTML = '';
     logContent.innerHTML = '';
+    document.getElementById('dfsBtn').disabled = false;
+    document.getElementById('bfsBtn').disabled = false;
 }
 
 function clearGraph() {
@@ -506,7 +568,10 @@ function clearGraph() {
     document.getElementById('pauseBtn').disabled = true;
     document.getElementById('pauseBtn').textContent = 'Pause';
     document.getElementById('nextBtn').disabled = true;
+    document.getElementById('prevBtn').disabled = true;
     updatePseudocodeHighlight(null);
+    document.getElementById('dfsBtn').disabled = false;
+    document.getElementById('bfsBtn').disabled = false;
 }
 
 function generateRandomGraph() {
@@ -544,16 +609,13 @@ function generateRandomGraph() {
         attempts++;
     }
     
-    // Update the global graph object
     graph = adj;
     
-    // Set the input mode to list and update the textarea
     inputMode = 'list';
     document.getElementById('listBtn').classList.add('active');
     document.getElementById('matrixBtn').classList.remove('active');
     graphInput.value = graphToListString(graph);
 
-    // Reset and draw the new graph
     resetVisualization();
     drawGraph({ states: {} });
 }
